@@ -2,7 +2,9 @@ import logging
 import json 
 import time
 import requests
-from config_service import settings
+import signal
+import sys
+from config import settings
 from google.transit import gtfs_realtime_pb2
 from confluent_kafka import Producer
 from dotenv import load_dotenv
@@ -73,12 +75,33 @@ def produce_to_kafka(payload):
     except Exception as e:
         logger.error(f"Error producing to Kafka: {e}")
 
-if __name__ == "__main__":
-    load_dotenv()
 
-    while True:
+## Shutdown handling (to move to a separate file)
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    print("Signal d'arrêt reçu (SIGTERM/SIGINT). Fermeture propre...")
+    running = False
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+def run_producer():    
+    while running:
         entity = fetch()
         if entity:
             for payload in serialize_entity_to_payload(entity):
                 produce_to_kafka(payload)
         time.sleep(settings.poll_interval)
+
+        for _ in range(settings.poll_interval):
+            if not running: break
+            time.sleep(1)
+    
+    print("Flush des messages restants...")
+    producer.flush(timeout=10)
+    print("Service arrêté.")
+
+if __name__ == "__main__":
+    run_producer()
