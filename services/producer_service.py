@@ -1,8 +1,8 @@
 import logging
-import os
 import json 
 import time
 import requests
+from config_service import settings
 from google.transit import gtfs_realtime_pb2
 from confluent_kafka import Producer
 from dotenv import load_dotenv
@@ -11,10 +11,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MTA-Producer")
 
 conf = {
-    'bootstrap.servers': os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+    'bootstrap.servers': settings.kafka_bootstrap_servers,
     'client.id': 'mta-producer',
     'acks': 'all', # Guarantee data is written to all replicas
-    'retries': 5, # Retry up to 5 times on failure
+    'retries': 5,
     'linger.ms': 10,
     'batch.num.messages': 100,
     'compression.type': 'gzip'
@@ -30,7 +30,7 @@ def delivery_report(err, msg):
 
 def fetch():
     try:
-        response = requests.get(os.getenv('MTA_FEED_URL'), timeout=10)
+        response = requests.get(settings.mta_feed_url, timeout=10)
         response.raise_for_status()
 
         feed = gtfs_realtime_pb2.FeedMessage()
@@ -64,7 +64,7 @@ def serialize_entity_to_payload(entity):
 def produce_to_kafka(payload):
     try:
         producer.produce(
-            os.getenv('TOPIC_NAME'), 
+            settings.topic_name, 
             key=payload['trip_id'],
             value=json.dumps(payload), 
             callback=delivery_report)
@@ -81,4 +81,4 @@ if __name__ == "__main__":
         if entity:
             for payload in serialize_entity_to_payload(entity):
                 produce_to_kafka(payload)
-        time.sleep(30)
+        time.sleep(settings.poll_interval)
