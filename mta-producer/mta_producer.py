@@ -81,7 +81,7 @@ running = True
 
 def signal_handler(sig, frame):
     global running
-    print("Signal d'arrêt reçu (SIGTERM/SIGINT). Fermeture propre...")
+    print("Signal received, shutting down")
     running = False
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -99,9 +99,9 @@ def run_producer():
             if not running: break
             time.sleep(1)
     
-    print("Flush des messages restants...")
+    print("Flushing remaining messages...")
     producer.flush(timeout=10)
-    print("Service arrêté.")
+    print("Shutdown complete.")
 
 if __name__ == "__main__":
     run_producer()
