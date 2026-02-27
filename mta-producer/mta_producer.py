@@ -66,7 +66,7 @@ def serialize_entity_to_payload(entity):
 def produce_to_kafka(payload):
     try:
         producer.produce(
-            settings.topic_name, 
+            settings.kafka_topic_name, 
             key=payload['trip_id'],
             value=json.dumps(payload), 
             callback=delivery_report)
