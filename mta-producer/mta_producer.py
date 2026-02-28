@@ -1,13 +1,11 @@
 import logging
-import json 
+import json
 import time
 import requests
 import signal
-import sys
 from config import settings
 from google.transit import gtfs_realtime_pb2
 from confluent_kafka import Producer
-from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MTA-Producer")
@@ -15,7 +13,7 @@ logger = logging.getLogger("MTA-Producer")
 conf = {
     'bootstrap.servers': settings.kafka_bootstrap_servers,
     'client.id': 'mta-producer',
-    'acks': 'all', # Guarantee data is written to all replicas
+    'acks': 'all',
     'retries': 5,
     'linger.ms': 10,
     'batch.num.messages': 100,
@@ -46,7 +44,7 @@ def fetch():
     except requests.RequestException as e:
         logger.error(f"Error fetching MTA feed: {e}")
         return None
-    
+
 def serialize_entity_to_payload(entity):
     if entity.HasField('trip_update'):
         payload = {
@@ -66,17 +64,15 @@ def serialize_entity_to_payload(entity):
 def produce_to_kafka(payload):
     try:
         producer.produce(
-            settings.kafka_topic_name, 
+            settings.kafka_topic_name,
             key=payload['trip_id'],
-            value=json.dumps(payload), 
+            value=json.dumps(payload),
             callback=delivery_report)
         producer.flush()
         logger.info(f"Successfully polled and produced payload for trip_id {payload['trip_id']}")
     except Exception as e:
         logger.error(f"Error producing to Kafka: {e}")
 
-
-## Shutdown handling (to move to a separate file)
 running = True
 
 def signal_handler(sig, frame):
@@ -87,7 +83,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-def run_producer():    
+def run_producer():
     while running:
         entity = fetch()
         if entity:
@@ -98,7 +94,7 @@ def run_producer():
         for _ in range(settings.poll_interval):
             if not running: break
             time.sleep(1)
-    
+
     print("Flushing remaining messages...")
     producer.flush(timeout=10)
     print("Shutdown complete.")
