@@ -1,9 +1,14 @@
+from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from config import settings
 
-def create_spark_session(app_name: str):
+def create_spark_session(app_name: str, cores: int = 1, memory: str = "1g", max_cores: int = 1):
      return SparkSession.builder \
         .appName(app_name) \
+        .config("spark.executor.cores", str(cores)) \
+        .config("spark.executor.memory", memory) \
+        .config("spark.scheduler.mode", "FAIR") \
+        .config("spark.cores.max", str(max_cores)) \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
         .config("spark.jars.packages",
                 "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,"
