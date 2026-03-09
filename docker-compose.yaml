@@ -1,4 +1,6 @@
 services:
+
+  ## Kafka and Zookeeper setup
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.7
     environment:
@@ -31,22 +33,24 @@ services:
       - data-network
 
   kafka-ui:
-    image: provectuslabs/kafka-ui:latest
+    image: kafbat/kafka-ui:latest
     depends_on:
       - kafka
     ports:
-      - "${KAFKA_UI_PORT:-8085}:8085"
+      - "${KAFKA_UI_PORT:-8085}:8080"
     env_file:
       - .env
     environment:
+      - DYNAMIC_CONFIG_ENABLED='true'
       - KAFKA_CLUSTERS_0_NAME=${KAFKA_UI_CLUSTER_NAME:-local}
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
-      - KAFKA_CLUSTERS_0_ZOOKEEPER=${KAFKA_ZOOKEEPER_CONNECT:-zookeeper:2181}
     networks:
       - data-network
 
+  ## Application services
   mta-producer:
-    build: ./mta-producer
+    build:
+      dockerfile: ./docker/producer.Dockerfile
     container_name: mta-producer
     depends_on:
       kafka:
@@ -63,6 +67,7 @@ services:
     networks:
       - data-network
 
+  ## MinIO setup for S3-compatible storage
   minio:
     image: minio/minio
     container_name: minio
@@ -91,15 +96,17 @@ services:
       - data-network
     entrypoint: >
       /bin/sh -c "
-      until (/usr/bin/mc alias set myminio ${S3_ENDPOINT:-http://minio:9000} ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD:-password}) do echo 'Waiting for MinIO...' && sleep 1; done;
+      until (/usr/bin/mc alias set myminio ${S3_ENDPOINT:-http://minio:9000} ${MINIO_ROOT_USER:-admin} ${MINIO_ROOT_PASSWORD}) do echo 'Waiting for MinIO...' && sleep 1; done;
       /usr/bin/mc mb myminio/mta-bronze;
       /usr/bin/mc mb myminio/mta-silver;
       /usr/bin/mc mb myminio/mta-gold;
       exit 0;
       "
 
+  ## Spark setup
   spark-master:
-    build: ./spark
+    build:
+      dockerfile: ./docker/spark.Dockerfile
     container_name: spark-master
     env_file:
       - .env
@@ -117,39 +124,72 @@ services:
       - SPARK_DAEMON_JAVA_OPTS="-Divy.home=/tmp/.ivy2"
       - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-admin}
-      - S3_SECRET_KEY=${S3_SECRET_KEY:-password}
-    volumes:
-      - ./apps:/opt/spark/apps
-      - ./data:/opt/spark/data
-      - .:/opt/spark/work-dir
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
     command: >
       /bin/sh -c "mkdir -p /tmp/.ivy2 && chmod -R 777 /tmp/.ivy2 && /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master"
     networks:
       - data-network
 
   spark-worker:
-    build: ./spark
+    build:
+      dockerfile: ./docker/spark.Dockerfile
     container_name: spark-worker
-    ports:
-      - "8083:8083"
     environment:
       - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_MASTER_URL=spark://spark-master:${SPARK_MASTER_PORT:-7077}
       - "JAVA_TOOL_OPTIONS=-Duser.home=/tmp -Djava.io.tmpdir=/tmp"
       - SPARK_DRIVER_HOST=spark-master
       - S3_ENDPOINT=${S3_ENDPOINT:-http://minio:9000}
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-admin}
-      - S3_SECRET_KEY=${S3_SECRET_KEY:-password}
-      - SPARK_WORKER_CORES=4
-      - SPARK_WORKER_MEMORY=4G
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - SPARK_WORKER_CORES=${SPARK_WORKER_CORES:-4}
+      - SPARK_WORKER_MEMORY=${SPARK_WORKER_MEMORY:-4g}
       - SPARK_SHUFFLE_SERVICE_ENABLED=true
       - SPARK_SCHEDULER_MODE=FAIR
     volumes:
     - .:/opt/spark/work-dir
     command: >
-      /bin/sh -c "mkdir -p /tmp/.ivy2 && chmod -R 777 /tmp/.ivy2 && /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
+      /bin/sh -c "mkdir -p /tmp/.ivy2 && chmod -R 777 /tmp/.ivy2 && /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:${SPARK_MASTER_PORT:-7077}"
     depends_on:
       - spark-master
+    networks:
+      - data-network
+
+    ## Airflow setup for orchestration
+    ## As per documentation, docker compose is not recommended for PROD environment
+    ## More at: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html
+  postgres:
+    image: postgres:14.22-alpine3.22
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-airflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-airflow}
+    networks:
+      - data-network
+
+  airflow:
+    build:
+      dockerfile: ./docker/airflow.Dockerfile
+    container_name: airflow
+    depends_on:
+      - spark-master
+      - postgres
+    environment:
+          - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+          - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${AIRFLOW_DATABASE_SQL_CONN_STRING}
+          - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
+          - AIRFLOW__CORE__LOAD_EXAMPLES=False
+          - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+          - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/src/dags
+          - AIRFLOW_CONN_SPARK_DEFAULT=spark://spark-master:${SPARK_MASTER_PORT:-7077}
+          - _AIRFLOW_WWW_USER_USERNAME=${AIRFLOW_USERNAME:-admin}
+          - _AIRFLOW_WWW_USER_PASSWORD=${AIRFLOW_PASSWORD}
+          - SPARK_LOCAL_IP=airflow
+          - SPARK_DRIVER_HOST=${POSTGRES_DB:-airflow}
+    ports:
+      - "${AIRFLOW_PORT:-8086}:8080"
+    command: standalone # Standalone mode only for local testing
     networks:
       - data-network
 

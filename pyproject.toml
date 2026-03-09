@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools >= 75.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mta-medallion-platform"
+version = "1.0.0"
+requires-python = ">=3.8.10"
+dependencies = [
+    "pydantic>=2.8.1",
+    "pydantic-settings>=2.8.1"
+]
+
+[project.optional-dependencies]
+requests = ["requests==2.32.5"]
+airflow = ["apache-airflow-providers-apache-spark"]
+spark = ["pyspark==3.5.0"]
+kafka = ["confluent-kafka==2.13.0"]
+gtfs = ["gtfs-realtime-bindings==2.0.0"]

@@ -1,6 +1,5 @@
-from pyspark import SparkConf
 from pyspark.sql import SparkSession
-from config import settings
+from shared.config import settings
 
 def create_spark_session(app_name: str, cores: int = 1, memory: str = "1g", max_cores: int = 1):
      return SparkSession.builder \
