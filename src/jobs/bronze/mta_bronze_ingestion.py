@@ -1,7 +1,7 @@
-from pyspark.sql.functions import from_json, col
+from pyspark.sql.functions import current_timestamp, from_json, col
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, LongType, IntegerType
-from config import settings
-from spark_builder import create_spark_session
+from shared.config import settings
+from shared.spark_builder import create_spark_session
 
 schema = StructType([
     StructField("trip_id", StringType(), True),
@@ -19,12 +19,13 @@ hudi_options = {
     'hoodie.table.type': 'MERGE_ON_READ',
     'hoodie.datasource.write.recordkey.field': 'trip_id',
     'hoodie.datasource.write.partitionpath.field': 'route_id',
-    'hoodie.datasource.write.precombine.field': 'timestamp',
+    'hoodie.datasource.write.precombine.field': 'ingestion_timestamp',
     'hoodie.datasource.write.operation': 'upsert',
     'hoodie.datasource.write.table.name': 'mta_trips_table',
     'hoodie.datasource.write.table.type': 'MERGE_ON_READ',
     'hoodie.storage.type': 'HADOOP',
-    'hoodie.embed.timeline.server': 'false'
+    'hoodie.embed.timeline.server': 'false',
+    'hoodie.datasource.write.reconcile.schema': 'true',
 }
 
 def main():
@@ -39,7 +40,8 @@ def main():
 
     parsed_df = kafka_df.selectExpr("CAST(value AS STRING)") \
         .select(from_json(col("value"), schema).alias("data")) \
-        .select("data.*")
+        .select("data.*") \
+        .withColumn("ingestion_timestamp", current_timestamp())
 
     query = parsed_df.writeStream \
         .format("hudi") \

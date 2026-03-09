@@ -14,4 +14,5 @@ docker exec -i spark-master /opt/spark/bin/spark-submit \
     --conf "spark.driver.extraJavaOptions=-Divy.home=/tmp/.ivy2" \
     --conf "spark.executor.extraJavaOptions=-Divy.home=/tmp/.ivy2" \
     --packages "$PACKAGES" \
-    /opt/spark/work-dir/mta-bronze-ingestion/mta_bronze_ingestion.py "$@"
+    --py-files src/common/ \
+    /opt/spark/work-dir/src/jobs/silver/mta_silver_ingestion.py "$@"

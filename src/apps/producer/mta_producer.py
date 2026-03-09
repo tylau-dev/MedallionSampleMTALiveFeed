@@ -3,7 +3,7 @@ import json
 import time
 import requests
 import signal
-from config import settings
+from shared.config import settings
 from google.transit import gtfs_realtime_pb2
 from confluent_kafka import Producer
 

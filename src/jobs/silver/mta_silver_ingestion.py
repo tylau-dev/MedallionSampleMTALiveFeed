@@ -1,13 +1,13 @@
 from pyspark.sql.functions import current_timestamp, explode, col, from_unixtime
-from config import settings
-from spark_builder import create_spark_session
+from shared.config import settings
+from shared.spark_builder import create_spark_session
 
 hudi_options = {
     'hoodie.table.name': 'mta_trips_silver',
     'hoodie.table.type': 'COPY_ON_WRITE',
     'hoodie.datasource.write.recordkey.field': 'trip_id,stop_id',
     'hoodie.datasource.write.partitionpath.field': 'route_id',
-    'hoodie.datasource.write.precombine.field': 'event_time',
+    'hoodie.datasource.write.precombine.field': 'processing_timestamp',
     'hoodie.datasource.write.operation': 'upsert',
     'hoodie.datasource.write.table.name': 'mta_trips_silver',
     'hoodie.datasource.write.table.type': 'COPY_ON_WRITE',
@@ -24,22 +24,16 @@ def main():
 
     silver_df = bronze_df \
         .filter(col("trip_id").isNotNull()) \
-        .withColumn("event_time", from_unixtime(col("timestamp"))) \
         .withColumn("processing_timestamp", current_timestamp()) \
         .withColumn("stop_update", explode(col("stop_time_updates"))) \
         .select(
             "trip_id",
             "route_id",
-            "event_time",
             col("stop_update.stop_id").alias("stop_id"),
             col("stop_update.arrival_delay").alias("arrival_delay"),
             col("stop_update.arrival_time").alias("stop_arrival_time"),
             "processing_timestamp"
         )
-
-    silver_df = bronze_df.filter(col("trip_id").isNotNull()) \
-        .withColumn("event_time", from_unixtime(col("timestamp"))) \
-        .withColumn("processing_timestamp", current_timestamp()) \
 
     query = silver_df.writeStream \
         .format("hudi") \
