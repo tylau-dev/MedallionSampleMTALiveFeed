@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir ".[requests,kafka,gtfs]"
+RUN pip install --no-cache-dir ".[requests,kafka,gtfs, httpx]"
 
 COPY ./src/shared ./src/shared
 COPY ./src/apps/producer ./src/apps/producer
@@ -22,4 +22,4 @@ RUN pip install -e .
 
 USER myuser
 
-CMD ["python", "./src/apps/producer/mta_producer.py"]
+CMD ["python", "./src/apps/producer/main.py"]
