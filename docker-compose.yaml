@@ -1,5 +1,4 @@
 services:
-
   ## Kafka and Zookeeper setup
   zookeeper:
     image: confluentinc/cp-zookeeper:7.7.7
@@ -14,7 +13,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "${KAFKA_HOST_PORT:-9092}:9092"
+      - "${KAFKA_HOST_PORT:-29092}:9092"
     env_file:
       - .env
     environment:
@@ -154,6 +153,31 @@ services:
       - spark-master
     networks:
       - data-network
+
+    ## Bronze and Silver jobs submission
+  bronze-job:
+    build:
+      dockerfile: ./docker/spark.Dockerfile
+    command: /bin/sh -c "chmod +x /opt/spark/work-dir/src/jobs/bronze/submit_bronze.sh && /opt/spark/work-dir/src/jobs/bronze/submit_bronze.sh"
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - data-network
+    depends_on:
+      - spark-master
+
+  silver-job:
+    build:
+      dockerfile: ./docker/spark.Dockerfile
+    command: /bin/sh -c "chmod +x /opt/spark/work-dir/src/jobs/silver/submit_silver.sh && /opt/spark/work-dir/src/jobs/silver/submit_silver.sh"
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - data-network
+    depends_on:
+      - spark-master
 
     ## Airflow setup for orchestration
     ## As per documentation, docker compose is not recommended for PROD environment

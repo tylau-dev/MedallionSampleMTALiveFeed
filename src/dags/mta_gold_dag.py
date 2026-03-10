@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.bash import BashOperator
 from datetime import datetime
+from shared.config import settings
 
 with DAG(
     'mta_gold_tranformation',
@@ -12,13 +13,13 @@ with DAG(
     run_gold_aggregation = SparkSubmitOperator(
         task_id='run_gold_aggregation',
         conn_id='spark_default',
-        application='/opt/airflow/jobs/gold/mta_gold_ingestion.py',
+        application='/opt/airflow/jobs/gold/mta_gold.py',
         name='mta_gold_aggregation',
         deploy_mode='client',
         env_vars={
-            "S3_ENDPOINT": "http://minio:9000",
-            "S3_ACCESS_KEY": "admin",
-            "S3_SECRET_KEY": "password"
+            "S3_ENDPOINT": settings.s3_endpoint,
+            "S3_ACCESS_KEY": settings.s3_access_key,
+            "S3_SECRET_KEY": settings.s3_secret_key
             },
         packages="org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0," \
             "org.apache.hudi:hudi-spark3.5-bundle_2.12:0.15.0," \
