@@ -1,8 +1,4 @@
-set -eu -o pipefail
-
-if [ -f "$(dirname "$0")/../.env" ]; then
-    export $(grep -v '^\s*#' "$(dirname "$0")/../.env" | xargs)
-fi
+set -eu
 
 MASTER_URL=${SPARK_MASTER_URL:-spark://spark-master:7077}
 PACKAGES=${SPARK_PACKAGES:-org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,\
@@ -15,4 +11,4 @@ docker exec -i spark-master /opt/spark/bin/spark-submit \
     --conf "spark.executor.extraJavaOptions=-Divy.home=/tmp/.ivy2" \
     --packages "$PACKAGES" \
     --py-files src/common/ \
-    /opt/spark/work-dir/src/jobs/bronze/mta_bronze_ingestion.py "$@"
+    /opt/spark/work-dir/src/jobs/silver/mta_silver.py "$@"

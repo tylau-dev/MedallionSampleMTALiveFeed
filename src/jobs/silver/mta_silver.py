@@ -1,3 +1,4 @@
+from pyspark.errors import AnalysisException
 from pyspark.sql.functions import current_timestamp, explode, col, from_unixtime
 from shared.config import settings
 from shared.spark_builder import create_spark_session
@@ -18,9 +19,16 @@ hudi_options = {
 def main():
     spark = create_spark_session("MTA Silver Data Cleaning")
 
-    bronze_df = spark.readStream \
-        .format("hudi") \
-        .load(settings.bronze_output_path)
+    try:
+        bronze_df = spark.readStream \
+            .format("hudi") \
+            .load(settings.bronze_output_path)
+    except AnalysisException as e:
+        if "Path does not exist" in str(e):
+                print("Waiting for Bronze to be populated...")
+                # Define a schema manually or stop the job gracefully
+        else:
+            raise e
 
     silver_df = bronze_df \
         .filter(col("trip_id").isNotNull()) \
