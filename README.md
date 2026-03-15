@@ -83,7 +83,7 @@ S3_GOLD_CHECKPOINT_LOCATION=s3a://mta-gold/checkpoints/
 S3_GOLD_OUTPUT_PATH=s3a://mta-gold/data/mta_trips
 
 AIRFLOW_PORT=8086
-AIRFLOW_FERNET_KEY=NK2QmUigH4bpdd33zgRgEyf-9DjzmUwmqLP_G_APw1A=
+AIRFLOW_FERNET_KEY=
 AIRFLOW_DATABASE_SQL_CONN_STRING=postgresql+psycopg2://airflow:airflow@postgres/airflow
 AIRFLOW_USERNAME=
 AIRFLOW_PASSWORD=
