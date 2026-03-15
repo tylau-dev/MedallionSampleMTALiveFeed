@@ -12,7 +12,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-requests = ["requests==2.32.5"]
 httpx=["httpx"]
 airflow = ["apache-airflow-providers-apache-spark"]
 spark = ["pyspark==3.5.0"]

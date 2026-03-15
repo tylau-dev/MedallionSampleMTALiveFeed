@@ -19,16 +19,9 @@ hudi_options = {
 def main():
     spark = create_spark_session("MTA Silver Data Cleaning")
 
-    try:
-        bronze_df = spark.readStream \
+    bronze_df = spark.readStream \
             .format("hudi") \
             .load(settings.bronze_output_path)
-    except AnalysisException as e:
-        if "Path does not exist" in str(e):
-                print("Waiting for Bronze to be populated...")
-                # Define a schema manually or stop the job gracefully
-        else:
-            raise e
 
     silver_df = bronze_df \
         .filter(col("trip_id").isNotNull()) \
